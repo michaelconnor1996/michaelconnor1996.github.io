@@ -1,0 +1,8 @@
+All of the code samples are from my Megaman fan clone project.
+
+AnimationGenerator: Contains some utility functions for creating animations, 
+
+BattleController: This class controls the flow of battle. It is responsible for successfully starting battles, and based on events that it receives, also for ending the battle.
+
+BattlefieldProvider: Randomly (with area constraints) selects and builds a battlefield 'map' by parsing an XML file.
+
