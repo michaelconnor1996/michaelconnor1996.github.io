@@ -1,8 +1,6 @@
 All of the code samples are from my Megaman fan clone project.
 
-AnimationGenerator: Contains some utility functions for creating animations, 
+ScriptInterface: Maintains a lua state in which parameters for various entities can be found. For example, the parameters for various enemy types are stored in a lua table. By using this you don't need to shutdown, recompile and launch the game when you want to experiment with or balance the values. Now you only need to start a new battle if the update function is called every second.
 
-BattleController: This class controls the flow of battle. It is responsible for successfully starting battles, and based on events that it receives, also for ending the battle.
-
-BattlefieldProvider: Randomly (with area constraints) selects and builds a battlefield 'map' by parsing an XML file.
+BattlefieldProvider: Randomly (with area constraints) selects and builds a battlefield 'map' by parsing a XML file.
 

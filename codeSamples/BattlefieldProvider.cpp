@@ -10,7 +10,6 @@
 #include <exception>
 #include <stdexcept>
 
-using namespace std;
 using namespace tinyxml2;
 using namespace cocos2d;
 
@@ -28,8 +27,8 @@ BattlefieldProvider::BattlefieldProvider(std::string _standardBackground, std::s
 
 
 bool BattlefieldProvider::initializeMaps(const char* mapsFilename) {
-	FileUtils *fileUtils = FileUtils::getInstance(); 
-	auto filename = fileUtils->fullPathForFilename("maps.xml");
+	FileUtils* fileUtils = FileUtils::getInstance(); 
+	std::string filename = fileUtils->fullPathForFilename("maps.xml");
 	XMLError error = mapDocument.LoadFile(filename.c_str());
 	if (error != XML_SUCCESS) {
 		cocos2d::log("Failed to load map document\n");
@@ -43,11 +42,16 @@ bool BattlefieldProvider::initializeMaps(const char* mapsFilename) {
 
 
 BattleField* BattlefieldProvider::getBattlefield(Area area, MegamanData* data, int minimalTier) const {
+	if (!mapRoot) {
+		return nullptr; //No map data is available.
+	}
+
 	BattleField* battlefield = nullptr;
 
 	XMLElement* map = chooseBattlefield(area, minimalTier);
 	if (map) {
-		battlefield = parseBattlefield(map, area);
+		battlefield = parseBattlefield(map);
+		battlefield->setArea(area);
 		XMLElement* objectNode = map->FirstChildElement("objects");
 		placeObjectsOnBattlefield(battlefield, data, objectNode);
 	}
@@ -62,17 +66,17 @@ tinyxml2::XMLElement* BattlefieldProvider::chooseBattlefield(Area area, int mini
 	XMLElement* map = areaContainer->FirstChildElement("map");
 	int totalWeight = gatherTotalWeightOfMaps(map, minimalTier);
 
-
 	//Choose the first valid map in the area, if none exist then nullptr is returned.
-	//This is good because an effect might be active that prevents weak/easy battles.
+	//This is desired because an effect might be active that prevents weak/easy battles.
 	XMLElement* chosenMap = areaContainer->FirstChildElement("map");
 	while (chosenMap && !isGoodTier(chosenMap, minimalTier)) 
 		chosenMap = chosenMap->NextSiblingElement("map");
 	if (!chosenMap)
 		return nullptr;
 
-	//Pick a random valid map
+	//Pick a random valid map.
 	int random = cocos2d::RandomHelper::random_int(0, totalWeight);
+	random -= chosenMap->IntAttribute("weight");
 	map = chosenMap->NextSiblingElement("map");
 	while (map && random >= 0) {
 		if (isGoodTier(map, minimalTier)) {
@@ -111,6 +115,7 @@ tinyxml2::XMLElement* BattlefieldProvider::findArea(Area area) const {
 		}
 		std::string errorMessage = "Area not found in maps file: " + toString(area) + "\n";
 		cocos2d::log(errorMessage.c_str());
+		//If no maps are available for the desired area, we pick a general map instead.
 		areaContainer = findArea(Area::GENERAL);
 	}
 
@@ -118,7 +123,7 @@ tinyxml2::XMLElement* BattlefieldProvider::findArea(Area area) const {
 }
 
 
-BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map, Area area) const {
+BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map) const {
 	if (!map)
 		return nullptr;
 	const char* id = map->Attribute("id");
@@ -126,14 +131,14 @@ BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map, Ar
 		throw(std::runtime_error("Map doesn't have an ID"));
 	previousID = id;
 	
-	BattleFieldFactory* battleFieldFactory = new BattleFieldFactory();
+	BattleFieldFactory battleFieldFactory;
 	XMLElement* tiles = map->FirstChildElement("tiles");
 	if (!tiles) {
 		std::string errorMessage = "Map doesn't have tiles section: " + previousID;
-		delete battleFieldFactory;
 		throw(std::runtime_error(errorMessage.c_str()));
 	}
 
+	//Parse all 3 rows of the battlefield.
 	XMLElement* row = tiles->FirstChildElement("frontRow");
 	if (row)
 		parseRow(row, RowPosition::FRONT, battleFieldFactory);
@@ -144,29 +149,28 @@ BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map, Ar
 	if (row)
 		parseRow(row, RowPosition::BACK, battleFieldFactory);
 
-	BattleField* battleField = battleFieldFactory->getBattleField();
-	delete battleFieldFactory;
-	if (!battleField) {
+	BattleField* battlefield = battleFieldFactory.getBattleField();
+	if (!battlefield) {
 		std::string errorMessage = "Map is missing some tiles: " + previousID;
 		throw(std::runtime_error(errorMessage.c_str()));
 	}
 
-	XMLElement* element = map->FirstChildElement("background");
-	if (element)
-		battleField->setBackgroundName(element->GetText());
+	XMLElement* background = map->FirstChildElement("background");
+	if (background)
+		battlefield->setBackgroundName(background->GetText());
 	else
-		battleField->setBackgroundName(standardBackground);
+		battlefield->setBackgroundName(standardBackground);
 
-	element = map->FirstChildElement("music");
-	if (element)
-		battleField->setMusicName(element->GetText());
+	XMLElement* music = map->FirstChildElement("music");
+	if (music)
+		battlefield->setMusicName(music->GetText());
 	else
-		battleField->setMusicName(standardMusic);
-	battleField->setArea(area);
-	return battleField;
+		battlefield->setMusicName(standardMusic);
+	
+	return battlefield;
 }
 
-void BattlefieldProvider::parseRow(tinyxml2::XMLElement* row, RowPosition rowPosition, BattleFieldFactory* factory) const {
+void BattlefieldProvider::parseRow(tinyxml2::XMLElement* row, RowPosition rowPosition, BattleFieldFactory& factory) const {
 	XMLElement* tile = row->FirstChildElement("tile");
 	XMLElement* ownerNode;
 	XMLElement* typeNode;
@@ -188,7 +192,7 @@ void BattlefieldProvider::parseRow(tinyxml2::XMLElement* row, RowPosition rowPos
 		type = typeFromString(typeNode->GetText());
 
 		BattleTile battleTile(Coordinate(x, y), owner, type);
-		factory->supplyNextTile(battleTile);
+		factory.supplyNextTile(battleTile);
 
 		++x;
 		tile = tile->NextSiblingElement("tile");
@@ -197,8 +201,11 @@ void BattlefieldProvider::parseRow(tinyxml2::XMLElement* row, RowPosition rowPos
 }
 
 void BattlefieldProvider::placeObjectsOnBattlefield(BattleField* battlefield, MegamanData* data, tinyxml2::XMLElement* objectNode) const {
-	if (!battlefield || !objectNode || !data)
+	if (!battlefield || !objectNode || !data) {
+		std::string errorMessage = "Invalid object parameters provided during construction\n";
+		cocos2d::log(errorMessage.c_str());
 		return;
+	}
 
 	EnemyType type;
 	XMLElement* nameNode = nullptr;
