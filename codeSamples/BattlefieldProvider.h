@@ -14,12 +14,12 @@ class MegamanData;
 class BattlefieldProvider {
 public:
 	BattlefieldProvider(std::string standardBackground, std::string standardMusic);
-	bool initializeMaps(const char* mapsFilename);
+	bool initializeMaps(const std::string& mapsFilename);
 
-	BattleField* getBattlefield(Area area, MegamanData* data, int minimalTier = 0) const;
+	BattleField* getBattlefield(Area area, MegamanData* data, int minimalTier = 0);
 
 private:
-	mutable std::string previousID;
+	std::string previousID;
 	tinyxml2::XMLDocument mapDocument;
 	tinyxml2::XMLNode* mapRoot;
 	std::string standardBackground;
@@ -28,9 +28,9 @@ private:
 	tinyxml2::XMLElement* chooseBattlefield(Area area, int minimalTier) const;
 	int gatherTotalWeightOfMaps(tinyxml2::XMLElement* map, int minimalTier) const;
 	tinyxml2::XMLElement* findArea(Area area) const;
-	BattleField* parseBattlefield(tinyxml2::XMLElement* map) const;
+	BattleField* parseBattlefield(tinyxml2::XMLElement* map);
 	void parseRow(tinyxml2::XMLElement* row, RowPosition rowPosition, BattleFieldFactory& factory) const;
-	void placeObjectsOnBattlefield(BattleField* battlefield, MegamanData* data, tinyxml2::XMLElement* objectNode) const; //Pass megaman data to place on battlefield
+	void placeObjectsOnBattlefield(BattleField* battlefield, MegamanData* data, tinyxml2::XMLElement* objectNode) const;
 };
 
 

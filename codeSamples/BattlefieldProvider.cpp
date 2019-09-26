@@ -26,9 +26,9 @@ BattlefieldProvider::BattlefieldProvider(std::string _standardBackground, std::s
 
 
 
-bool BattlefieldProvider::initializeMaps(const char* mapsFilename) {
+bool BattlefieldProvider::initializeMaps(const std::string& mapsFilename) {
 	FileUtils* fileUtils = FileUtils::getInstance(); 
-	std::string filename = fileUtils->fullPathForFilename("maps.xml");
+	std::string filename = fileUtils->fullPathForFilename(mapsFilename);
 	XMLError error = mapDocument.LoadFile(filename.c_str());
 	if (error != XML_SUCCESS) {
 		cocos2d::log("Failed to load map document\n");
@@ -41,7 +41,7 @@ bool BattlefieldProvider::initializeMaps(const char* mapsFilename) {
 }
 
 
-BattleField* BattlefieldProvider::getBattlefield(Area area, MegamanData* data, int minimalTier) const {
+BattleField* BattlefieldProvider::getBattlefield(Area area, MegamanData* data, int minimalTier) {
 	if (!mapRoot) {
 		return nullptr; //No map data is available.
 	}
@@ -123,7 +123,7 @@ tinyxml2::XMLElement* BattlefieldProvider::findArea(Area area) const {
 }
 
 
-BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map) const {
+BattleField* BattlefieldProvider::parseBattlefield(tinyxml2::XMLElement* map) {
 	if (!map)
 		return nullptr;
 	const char* id = map->Attribute("id");
